@@ -1,0 +1,10 @@
+main:
+    int a
+    int b
+    print("First number: ")
+    cin(a)
+    print("Second number: ")
+    cin(b)
+    print("Sum: ")
+    println(a + b)
+    exit(0)

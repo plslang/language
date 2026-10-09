@@ -1,15 +1,8 @@
 // lexer/lex_ident.cpp - lex identifiers and keywords
-#include <string>
+#include "lexer.hpp"
 #include <cctype>
 
 using namespace std;
-
-struct Token {
-    enum Type { IDENT, NUMBER, STRING, LPAREN, RPAREN, COLON, DOT, EQUAL, END } type;
-    string text;
-    int line;
-    int col;
-};
 
 bool tryLexIdent(const string& src, size_t pos, Token& out, size_t& newPos,
                  int& line, int& col)
@@ -38,6 +31,5 @@ bool tryLexIdent(const string& src, size_t pos, Token& out, size_t& newPos,
 
     newPos = p;
     col = lc;
-    // line unchanged — identifiers can't contain '\n'
     return true;
 }

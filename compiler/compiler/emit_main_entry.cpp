@@ -1,17 +1,7 @@
 // compiler/emit_main_entry.cpp - emit C++ int main() dispatcher
-#include <string>
-#include <sstream>
-#include <vector>
-#include <map>
+#include "compiler.hpp"
 
 using namespace std;
-
-struct DeclareInfo {
-    string type;
-    string name;
-};
-
-string cppIdentFor(const string& fn, const string& var);
 
 string emitMainEntry(const map<string, vector<DeclareInfo>>& declares) {
     ostringstream out;

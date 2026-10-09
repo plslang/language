@@ -1,37 +1,8 @@
 // lexer/lex_source.cpp - main tokenizer loop
-#include <string>
-#include <vector>
+#include "lexer.hpp"
 #include <cctype>
 
 using namespace std;
-
-struct Token {
-    enum Type { IDENT, NUMBER, STRING, LPAREN, RPAREN, COLON, DOT, EQUAL,
-                PLUS, MINUS, STAR, SLASH, END } type;
-    string text;
-    int line;
-    int col;
-};
-
-struct CompileError : public std::exception {
-    int code;
-    string message;
-    vector<string> stack;
-    int line;
-    CompileError(int c, string msg, int ln = -1)
-        : code(c), message(move(msg)), line(ln) {}
-    const char* what() const noexcept override { return message.c_str(); }
-};
-
-// ---------- cross-module prototypes ----------
-bool tryLexIdent(const string& src, size_t pos, Token& out, size_t& newPos,
-                 int& line, int& col);
-bool tryLexNumber(const string& src, size_t pos, Token& out, size_t& newPos,
-                  int& line, int& col);
-bool tryLexString(const string& src, size_t pos, Token& out, size_t& newPos,
-                  int& line, int& col);
-bool tryLexPunct(const string& src, size_t pos, Token& out, size_t& newPos,
-                 int& line, int& col);
 
 vector<Token> lexSource(const string& src) {
     vector<Token> tokens;

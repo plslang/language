@@ -1,4 +1,9 @@
 // main.cpp - entry point for pl compiler
+#include "common.hpp"
+#include "lexer/lexer.hpp"
+#include "parser/parser.hpp"
+#include "compiler/compiler.hpp"
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -22,77 +27,6 @@ extern const char* C_MAGENTA;
 extern const char* C_CYAN;
 extern const char* C_BOLD;
 extern const char* C_DIM;
-
-// ---------- shared error type ----------
-struct CompileError : public std::exception {
-    int code;
-    string message;
-    vector<string> stack;
-    int line;
-    CompileError(int c, string msg, int ln = -1)
-        : code(c), message(move(msg)), line(ln) {}
-    const char* what() const noexcept override { return message.c_str(); }
-};
-
-// ---------- token (mirrors lexer/tokens.cpp) ----------
-struct Token {
-    enum Type { IDENT, NUMBER, STRING, LPAREN, RPAREN, COLON, DOT, EQUAL,
-                PLUS, MINUS, STAR, SLASH, END } type;
-    string text;
-    int line;
-    int col;
-};
-
-// ---------- expressions (mirrors parser/ast.cpp) ----------
-struct Expr {
-    enum Kind { NUM, STR, VAR, BINOP } kind;
-
-    long long numValue = 0;      // NUM
-    string    strValue;          // STR
-    string    varName;           // VAR
-    char      op = 0;            // BINOP: '+', '-', '*', '/'
-    shared_ptr<Expr> lhs;        // BINOP
-    shared_ptr<Expr> rhs;        // BINOP
-
-    int line = 0;
-};
-using ExprPtr = shared_ptr<Expr>;
-
-// ---------- AST (mirrors parser/ast.cpp) ----------
-struct Stmt {
-    enum Kind { PRINT, EXIT, CALL, DECL, ASSIGN, DECLARE, GLOBAL, USING } kind;
-
-    bool newline = false;
-    ExprPtr printExpr;           // PRINT
-
-    int exitCode = 0;            // EXIT
-
-    string callName;             // CALL
-
-    string varType;              // DECL / DECLARE / GLOBAL
-    string varName;              // DECL / ASSIGN / DECLARE / GLOBAL
-    ExprPtr varInit;             // DECL / ASSIGN / GLOBAL
-
-    string usingModule;          // USING
-
-    int line = 0;
-};
-
-struct Function {
-    string name;
-    vector<Stmt> body;
-};
-
-struct Program {
-    vector<Function> functions;
-    int mainIndex = -1;
-    bool usesMath = false;
-};
-
-// ---------- cross-module prototypes ----------
-vector<Token> lexSource(const string& src);
-Program parseProgram(const vector<Token>& toks);
-string generateCpp(const Program& prog, const string& srcName);
 
 // ---------- utils ----------
 static string readFile(const string& path) {

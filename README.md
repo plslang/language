@@ -18,7 +18,7 @@ It contains *3* folders.
 
 ## How do I write on language?
 
-All the documentation reposited in `plslang.github.io`.
+All the documentation (will be) reposited in `plslang.github.io`.
 
 ---
 

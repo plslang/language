@@ -1,15 +1,7 @@
 // lexer/lex_punct.cpp - lex punctuation: ( ) : . = + - * /
-#include <string>
+#include "lexer.hpp"
 
 using namespace std;
-
-struct Token {
-    enum Type { IDENT, NUMBER, STRING, LPAREN, RPAREN, COLON, DOT, EQUAL,
-                PLUS, MINUS, STAR, SLASH, END } type;
-    string text;
-    int line;
-    int col;
-};
 
 bool tryLexPunct(const string& src, size_t pos, Token& out, size_t& newPos,
                  int& line, int& col)

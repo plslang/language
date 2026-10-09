@@ -1,59 +1,8 @@
-// compiler/resolve.cpp - name resolution and render helpers
-#include <string>
-#include <vector>
-#include <map>
-#include <set>
-#include <memory>
+// compiler/resolve.cpp - name resolution
+#include "compiler.hpp"
 
 using namespace std;
 
-struct CompileError : public std::exception {
-    int code;
-    string message;
-    vector<string> stack;
-    int line;
-    CompileError(int c, string msg, int ln = -1)
-        : code(c), message(move(msg)), line(ln) {}
-    const char* what() const noexcept override { return message.c_str(); }
-};
-
-struct Expr {
-    enum Kind { NUM, STR, VAR, BINOP } kind;
-    long long numValue = 0;
-    string strValue;
-    string varName;
-    char op = 0;
-    shared_ptr<Expr> lhs;
-    shared_ptr<Expr> rhs;
-    int line = 0;
-};
-using ExprPtr = shared_ptr<Expr>;
-
-struct GlobalInfo {
-    string type;
-    ExprPtr init;
-    string declaredIn;
-    int    line = 0;
-};
-
-struct FuncScope {
-    map<string,string> vars;
-    map<string,string> declareTypes;
-    set<string>        declares;
-};
-
-struct Resolved {
-    bool found = false;
-    string type;
-    enum Where { NONE, LOCAL, DECLARE, GLOBAL } where = NONE;
-};
-
-// ---------- from config.cpp ----------
-string cppIdentFor(const string& fn, const string& var);
-string cppGlobalIdent(const string& name);
-bool   isNumericLiteral(const string& s);
-
-// ---------- resolveName ----------
 Resolved resolveName(const FuncScope& sc,
                      const map<string, GlobalInfo>& globals,
                      const string& name)
@@ -74,7 +23,6 @@ Resolved resolveName(const FuncScope& sc,
     return r;
 }
 
-// ---------- renderLValue ----------
 string renderLValue(const string& fn,
                     const FuncScope& sc,
                     const map<string, GlobalInfo>& globals,

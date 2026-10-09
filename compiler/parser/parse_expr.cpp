@@ -1,52 +1,8 @@
 // parser/parse_expr.cpp - recursive-descent expression parser
-// grammar:
-//   expr   := term (('+' | '-') term)*
-//   term   := atom (('*' | '/') atom)*
-//   atom   := NUMBER | STRING | IDENT | '(' expr ')'
-#include <string>
-#include <vector>
-#include <memory>
+#include "parser.hpp"
 
 using namespace std;
 
-struct CompileError : public std::exception {
-    int code;
-    string message;
-    vector<string> stack;
-    int line;
-    CompileError(int c, string msg, int ln = -1)
-        : code(c), message(move(msg)), line(ln) {}
-    const char* what() const noexcept override { return message.c_str(); }
-};
-
-struct Token {
-    enum Type { IDENT, NUMBER, STRING, LPAREN, RPAREN, COLON, DOT, EQUAL,
-                PLUS, MINUS, STAR, SLASH, END } type;
-    string text;
-    int line;
-    int col;
-};
-
-struct Expr {
-    enum Kind { NUM, STR, VAR, BINOP } kind;
-    long long numValue = 0;
-    string strValue;
-    string varName;
-    char op = 0;
-    shared_ptr<Expr> lhs;
-    shared_ptr<Expr> rhs;
-    int line = 0;
-};
-using ExprPtr = shared_ptr<Expr>;
-
-ExprPtr makeNum(long long v, int line);
-ExprPtr makeStr(const string& s, int line);
-ExprPtr makeVar(const string& n, int line);
-ExprPtr makeBin(char op, ExprPtr l, ExprPtr r, int line);
-
-ExprPtr parseExpr(const vector<Token>& toks, size_t& pos);
-
-// ---------- atom ----------
 static ExprPtr parseAtom(const vector<Token>& toks, size_t& pos) {
     if (pos >= toks.size()) {
         CompileError e(1, "failed argument: unexpected end of file in expression");
@@ -56,18 +12,10 @@ static ExprPtr parseAtom(const vector<Token>& toks, size_t& pos) {
 
     const Token& t = toks[pos];
 
-    if (t.type == Token::NUMBER) {
-        pos++;
-        return makeNum(stoll(t.text), t.line);
-    }
-    if (t.type == Token::STRING) {
-        pos++;
-        return makeStr(t.text, t.line);
-    }
-    if (t.type == Token::IDENT) {
-        pos++;
-        return makeVar(t.text, t.line);
-    }
+    if (t.type == Token::NUMBER) { pos++; return makeNum(stoll(t.text), t.line); }
+    if (t.type == Token::STRING) { pos++; return makeStr(t.text, t.line); }
+    if (t.type == Token::IDENT)  { pos++; return makeVar(t.text, t.line); }
+
     if (t.type == Token::LPAREN) {
         pos++;
         ExprPtr inner = parseExpr(toks, pos);
@@ -92,7 +40,6 @@ static ExprPtr parseAtom(const vector<Token>& toks, size_t& pos) {
     throw e;
 }
 
-// ---------- term: * / ----------
 static ExprPtr parseTerm(const vector<Token>& toks, size_t& pos) {
     ExprPtr left = parseAtom(toks, pos);
     while (pos < toks.size() &&
@@ -107,7 +54,6 @@ static ExprPtr parseTerm(const vector<Token>& toks, size_t& pos) {
     return left;
 }
 
-// ---------- expr: + - ----------
 ExprPtr parseExpr(const vector<Token>& toks, size_t& pos) {
     ExprPtr left = parseTerm(toks, pos);
     while (pos < toks.size() &&

@@ -7,8 +7,8 @@
 using namespace std;
 
 // ---------- version ----------
-const char* PL_VERSION      = "0.6.0";
-const char* PL_LANG_VERSION = "pla-lang v0.5";
+const char* PL_VERSION      = "0.7.0";
+const char* PL_LANG_VERSION = "pla-lang v0.6";
 
 // ---------- ANSI colors ----------
 const char* C_RESET   = "\033[0m";

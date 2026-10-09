@@ -1,64 +1,7 @@
 // compiler/globals.cpp - collect global variables
-#include <string>
-#include <vector>
-#include <map>
-#include <set>
-#include <memory>
+#include "compiler.hpp"
 
 using namespace std;
-
-struct CompileError : public std::exception {
-    int code;
-    string message;
-    vector<string> stack;
-    int line;
-    CompileError(int c, string msg, int ln = -1)
-        : code(c), message(move(msg)), line(ln) {}
-    const char* what() const noexcept override { return message.c_str(); }
-};
-
-struct Expr {
-    enum Kind { NUM, STR, VAR, BINOP } kind;
-    long long numValue = 0;
-    string strValue;
-    string varName;
-    char op = 0;
-    shared_ptr<Expr> lhs;
-    shared_ptr<Expr> rhs;
-    int line = 0;
-};
-using ExprPtr = shared_ptr<Expr>;
-
-struct Stmt {
-    enum Kind { PRINT, EXIT, CALL, DECL, ASSIGN, DECLARE, GLOBAL, USING } kind;
-    bool newline = false;
-    ExprPtr printExpr;
-    int exitCode = 0;
-    string callName;
-    string varType;
-    string varName;
-    ExprPtr varInit;
-    string usingModule;
-    int line = 0;
-};
-
-struct Function {
-    string name;
-    vector<Stmt> body;
-};
-
-struct Program {
-    vector<Function> functions;
-    int mainIndex = -1;
-    bool usesMath = false;
-};
-
-struct GlobalInfo {
-    string type;
-    ExprPtr init;
-    string declaredIn;
-    int    line = 0;
-};
 
 map<string, GlobalInfo> collectGlobals(const Program& prog) {
     map<string, GlobalInfo> globals;
