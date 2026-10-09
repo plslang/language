@@ -1,0 +1,3 @@
+[submodule "vsix"]
+	path = vsix
+	url = https://github.com/plslang/vsix
