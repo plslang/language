@@ -13,6 +13,7 @@ struct Token {
         LPAREN, RPAREN, COLON, DOT, EQUAL,
         PLUS, MINUS, STAR, SLASH,
         EQEQ, NEQ, LT, GT, LTE, GTE,
+        BANG,
         AT,
         END
     };

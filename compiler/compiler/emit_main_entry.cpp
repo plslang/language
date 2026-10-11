@@ -3,25 +3,22 @@
 
 using namespace std;
 
-string emitMainEntry(const map<string, vector<DeclareInfo>>& declares) {
+string emitMainEntry(const map<string, FuncInfo>& funcs) {
     ostringstream out;
 
     out << "// real entry\n";
     out << "int main() {\n";
 
-    auto it = declares.find("main");
+    auto it = funcs.find("main");
     const vector<DeclareInfo> empty;
-    const vector<DeclareInfo>& mainDecls = (it != declares.end()) ? it->second : empty;
+    const vector<DeclareInfo>& mainDecls =
+        (it != funcs.end()) ? it->second.declares : empty;
 
     for (const auto& d : mainDecls) {
         out << "    // owner for declare " << d.type << " " << d.name << "\n";
-        if (d.type == "int") {
-            out << "    long long " << cppIdentFor("main", d.name) << " = 0;\n";
-        } else if (d.type == "string") {
-            out << "    std::string " << cppIdentFor("main", d.name) << " = \"\";\n";
-        } else {
-            out << "    auto " << cppIdentFor("main", d.name) << " = 0;\n";
-        }
+        out << "    " << typeFor(d.type) << " "
+            << cppIdentFor("main", d.name) << " = "
+            << defaultFor(d.type) << ";\n";
     }
 
     out << "    fn_main(";

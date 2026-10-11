@@ -1,0 +1,5 @@
+main:
+    string test = ", world!"
+
+    println("Hello" + test)
+    exit(0)

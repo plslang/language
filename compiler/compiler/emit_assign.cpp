@@ -4,14 +4,15 @@
 using namespace std;
 
 string emitAssign(const Stmt& s, const string& fn, const FuncScope& sc,
-                  const map<string, GlobalInfo>& globals)
+                  const map<string, GlobalInfo>& globals,
+                  const map<string, FuncInfo>& funcs)
 {
     ostringstream out;
     string lhs = renderLValue(fn, sc, globals, s.varName);
 
     out << "// code - " << s.varName << " = ...\n";
     out << "    " << lhs << " = "
-        << renderExpr(s.varInit, fn, sc, globals) << ";\n";
+        << renderExpr(s.varInit, fn, sc, globals, funcs) << ";\n";
 
     return out.str();
 }

@@ -39,76 +39,106 @@ struct Resolved {
     enum Where { NONE, LOCAL, DECLARE, GLOBAL } where = NONE;
 };
 
+// ---------- function metadata ----------
+struct FuncInfo {
+    FuncRet retType = FuncRet::VOID;
+    std::vector<DeclareInfo> declares;
+};
+
 // ---------- config.cpp helpers ----------
 std::string cppStringLiteral(const std::string& s);
 std::string cppIdentFor(const std::string& fn, const std::string& var);
 std::string cppGlobalIdent(const std::string& name);
 std::string typeFor(const std::string& t);
+std::string cppRetType(FuncRet r);
 bool        isNumericLiteral(const std::string& s);
+std::string defaultFor(const std::string& type);
 std::string isoDateNow();
 
 // ---------- passes ----------
 std::map<std::string, GlobalInfo> collectGlobals(const Program& prog);
 std::map<std::string, FuncScope>  buildScopes(const Program& prog,
                                               const std::map<std::string, GlobalInfo>& globals);
-std::map<std::string, std::vector<DeclareInfo>> buildDeclares(const Program& prog);
+std::map<std::string, FuncInfo>   buildFuncInfo(const Program& prog);
 
 // ---------- name resolution ----------
 Resolved resolveName(const FuncScope& sc,
                      const std::map<std::string, GlobalInfo>& globals,
                      const std::string& name);
 
+// ---------- expression rendering ----------
 std::string renderExpr(const ExprPtr& e, const std::string& fn, const FuncScope& sc,
-                       const std::map<std::string, GlobalInfo>& globals);
+                       const std::map<std::string, GlobalInfo>& globals,
+                       const std::map<std::string, FuncInfo>& funcs);
 std::string renderLValue(const std::string& fn, const FuncScope& sc,
                          const std::map<std::string, GlobalInfo>& globals,
                          const std::string& name);
 
 // ---------- semantic ----------
+std::string inferExprType(const ExprPtr& e,
+                          const FuncScope& sc,
+                          const std::map<std::string, GlobalInfo>& globals,
+                          const std::map<std::string, FuncInfo>& funcs,
+                          const std::string& fn);
+
 void semanticCheck(const Program& prog,
                    const std::map<std::string, GlobalInfo>& globals,
                    const std::map<std::string, FuncScope>& scopes,
-                   const std::map<std::string, std::vector<DeclareInfo>>& declares);
+                   const std::map<std::string, FuncInfo>& funcs);
 
 // ---------- emitters ----------
 std::string emitPrint (const Stmt& s, const std::string& fn, const FuncScope& sc,
-                       const std::map<std::string, GlobalInfo>& globals);
+                       const std::map<std::string, GlobalInfo>& globals,
+                       const std::map<std::string, FuncInfo>& funcs);
 std::string emitExit  (const Stmt& s);
 std::string emitCall  (const Stmt& s, const std::string& fn, const FuncScope& sc,
                        const std::map<std::string, GlobalInfo>& globals,
-                       const std::map<std::string, std::vector<DeclareInfo>>& declares);
+                       const std::map<std::string, FuncInfo>& funcs);
 std::string emitDecl  (const Stmt& s, const std::string& fn, const FuncScope& sc,
-                       const std::map<std::string, GlobalInfo>& globals);
+                       const std::map<std::string, GlobalInfo>& globals,
+                       const std::map<std::string, FuncInfo>& funcs);
 std::string emitAssign(const Stmt& s, const std::string& fn, const FuncScope& sc,
-                       const std::map<std::string, GlobalInfo>& globals);
+                       const std::map<std::string, GlobalInfo>& globals,
+                       const std::map<std::string, FuncInfo>& funcs);
 std::string emitDeclare(const Stmt& s, const std::string& fn);
 std::string emitGlobalMarker(const Stmt& s);
 std::string emitCin   (const Stmt& s, const std::string& fn, const FuncScope& sc,
                        const std::map<std::string, GlobalInfo>& globals);
+std::string emitReturn(const Stmt& s, const std::string& fn, const FuncScope& sc,
+                       const std::map<std::string, GlobalInfo>& globals,
+                       const std::map<std::string, FuncInfo>& funcs,
+                       FuncRet currentRet);
 
-// if / else
 std::string emitIf(const Stmt& s, const std::string& fn, const FuncScope& sc,
                    const std::map<std::string, GlobalInfo>& globals,
-                   const std::map<std::string, std::vector<DeclareInfo>>& declares,
+                   const std::map<std::string, FuncInfo>& funcs,
                    int indent);
 
-// ---------- block emitter (used by emitIf) ----------
+// [WHILE] новые эмиттеры
+std::string emitWhile(const Stmt& s, const std::string& fn, const FuncScope& sc,
+                      const std::map<std::string, GlobalInfo>& globals,
+                      const std::map<std::string, FuncInfo>& funcs,
+                      int indent);
+std::string emitPass(const Stmt& s);
+std::string emitContinue(const Stmt& s);
+
 std::string emitStmtBlock(const std::vector<Stmt>& body,
                           const std::string& fn,
                           const FuncScope& sc,
                           const std::map<std::string, GlobalInfo>& globals,
-                          const std::map<std::string, std::vector<DeclareInfo>>& declares,
-                          int indent);
+                          const std::map<std::string, FuncInfo>& funcs,
+                          int indent,
+                          FuncRet currentRet);
 
 // ---------- codegen ----------
 std::string emitBanner(const std::string& srcName);
 std::string emitIncludes(bool usesMath);
 std::string emitGlobals(const std::map<std::string, GlobalInfo>& globals);
 std::string emitForwardDeclarations(const Program& prog,
-                                    const std::map<std::string, std::vector<DeclareInfo>>& declares);
+                                    const std::map<std::string, FuncInfo>& funcs);
 std::string emitFunction(const Function& f, const FuncScope& sc,
                          const std::map<std::string, GlobalInfo>& globals,
-                         const std::map<std::string, std::vector<DeclareInfo>>& declares);
-std::string emitMainEntry(const std::map<std::string, std::vector<DeclareInfo>>& declares);
+                         const std::map<std::string, FuncInfo>& funcs);
+std::string emitMainEntry(const std::map<std::string, FuncInfo>& funcs);
 
 std::string generateCpp(const Program& prog, const std::string& srcName);

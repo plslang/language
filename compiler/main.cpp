@@ -1,5 +1,6 @@
 // main.cpp - entry point for pl compiler
 #include "common.hpp"
+#include "config.hpp"
 #include "lexer/lexer.hpp"
 #include "parser/parser.hpp"
 #include "compiler/compiler.hpp"
@@ -14,19 +15,6 @@
 #include <stdexcept>
 
 using namespace std;
-
-// ---------- version / colors (defined in config.cpp) ----------
-extern const char* PL_VERSION;
-extern const char* PL_LANG_VERSION;
-
-extern const char* C_RESET;
-extern const char* C_RED;
-extern const char* C_GREEN;
-extern const char* C_YELLOW;
-extern const char* C_MAGENTA;
-extern const char* C_CYAN;
-extern const char* C_BOLD;
-extern const char* C_DIM;
 
 // ---------- utils ----------
 static string readFile(const string& path) {
@@ -53,34 +41,53 @@ static string getExtension(const string& path) {
     return path.substr(dot + 1);
 }
 
+// ---------- pretty error printer ----------
 static void printError(const CompileError& e, const string& srcPath,
                        const string& source)
 {
+    // ── заголовок
     cerr << C_RED << C_BOLD << "error[" << e.code << "]" << C_RESET
          << C_RED << ": " << e.message << C_RESET << "\n";
 
+    // ── строка + подсветка
     if (e.line > 0) {
+        // собираем все строки исходника
+        vector<string> lines;
+        {
+            istringstream ss(source);
+            string ln;
+            while (getline(ss, ln)) lines.push_back(ln);
+        }
+
+        int width = to_string(e.line).size();
+
         cerr << C_CYAN << "  --> " << C_RESET
              << srcPath << C_YELLOW << ":" << e.line << C_RESET << "\n";
 
-        istringstream ss(source);
-        string ln;
-        int cur = 1;
-        while (getline(ss, ln)) {
-            if (cur == e.line) {
-                cerr << C_DIM << "   |" << C_RESET << "\n";
-                cerr << C_YELLOW << " " << cur << " | " << C_RESET
-                     << ln << "\n";
-                cerr << C_DIM << "   |" << C_RESET << "\n";
-                break;
-            }
-            cur++;
+        cerr << C_DIM << string(width + 2, ' ') << "|" << C_RESET << "\n";
+
+        if (e.line >= 1 && e.line <= (int)lines.size()) {
+            // строка
+            cerr << C_YELLOW << " " << e.line << " " << C_RESET
+                 << C_DIM << "|" << C_RESET << " "
+                 << lines[e.line - 1] << "\n";
+
+            // подчёркивание под всей строкой
+            cerr << C_DIM << string(width + 2, ' ') << "|" << C_RESET << "\n";
+        } else {
+            cerr << C_YELLOW << " " << e.line << " " << C_RESET
+                 << C_DIM << "|" << C_RESET << " "
+                 << C_DIM << "(line not available)" << C_RESET << "\n";
         }
     }
 
-    cerr << C_MAGENTA << "stacktrace:" << C_RESET << "\n";
-    for (const auto& s : e.stack) {
-        cerr << C_DIM << "  at " << C_RESET << C_MAGENTA << s << C_RESET << "\n";
+    // ── стектрейс
+    if (!e.stack.empty()) {
+        cerr << C_MAGENTA << "  stack:" << C_RESET << "\n";
+        for (const auto& s : e.stack) {
+            cerr << C_DIM << "    at " << C_RESET
+                 << C_MAGENTA << s << C_RESET << "\n";
+        }
     }
 }
 

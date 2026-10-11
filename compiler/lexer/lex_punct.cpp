@@ -11,15 +11,6 @@ bool tryLexPunct(const string& src, size_t pos, Token& out, size_t& newPos,
     char c = src[pos];
     char n = (pos + 1 < src.size()) ? src[pos + 1] : '\0';
 
-    // ';' is ignored — treated like whitespace, not a token
-    if (c == ';') {
-        newPos = pos + 1;
-        col++;
-        // special marker: out.type not set, caller must check newPos > pos
-        // We use END as sentinel and let lex_source skip it
-        return false;  // не потребляем, пусть lex_source сам скипнет
-    }
-
     Token::Type t;
     size_t consumed = 1;
 
@@ -30,7 +21,7 @@ bool tryLexPunct(const string& src, size_t pos, Token& out, size_t& newPos,
             break;
         case '!':
             if (n == '=') { t = Token::NEQ; consumed = 2; }
-            else          { return false; }
+            else          { t = Token::BANG; }
             break;
         case '<':
             if (n == '=') { t = Token::LTE; consumed = 2; }

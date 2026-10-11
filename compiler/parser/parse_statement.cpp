@@ -35,7 +35,7 @@ static Stmt parseUsing(const vector<Token>& toks, size_t& pos) {
     return s;
 }
 
-Stmt parseStatement(const vector<Token>& toks, size_t& pos) {
+Stmt parseStatement(const vector<Token>& toks, size_t& pos, const ParseCtx& ctx) {
     const Token& t = toks[pos];
 
     if (t.type == Token::DOT) {
@@ -49,12 +49,28 @@ Stmt parseStatement(const vector<Token>& toks, size_t& pos) {
     if (t.type == Token::IDENT) {
         // 29: 'if' must be wrapped in @ifblock
         if (t.text == "if") {
-            CompileError e(29,
-                "'if' statement must be wrapped in '@ifblock' / '@endblock'",
-                t.line);
-            e.stack.push_back("Parser::parseStatement -> if outside @ifblock");
-            e.stack.push_back("at line " + to_string(t.line));
-            throw e;
+            if (!ctx.allowIf) {
+                CompileError e(29,
+                    "'if' statement must be wrapped in '@ifblock' / '@endblock'",
+                    t.line);
+                e.stack.push_back("Parser::parseStatement -> if outside @ifblock");
+                e.stack.push_back("at line " + to_string(t.line));
+                throw e;
+            }
+            return parseIf(toks, pos, /*blockLine=*/-1, ctx);
+        }
+
+        // 65: 'while' must be wrapped in @whileblock
+        if (t.text == "while") {
+            if (!ctx.allowWhile) {
+                CompileError e(65,
+                    "'while' statement must be wrapped in '@whileblock' / '@endblock'",
+                    t.line);
+                e.stack.push_back("Parser::parseStatement -> while outside @whileblock");
+                e.stack.push_back("at line " + to_string(t.line));
+                throw e;
+            }
+            return parseWhile(toks, pos);
         }
 
         // 30: 'else' without matching 'if'
@@ -66,13 +82,37 @@ Stmt parseStatement(const vector<Token>& toks, size_t& pos) {
             throw e;
         }
 
+        // pass / continue
+        if (t.text == "pass") {
+            if (!ctx.allowPass) {
+                CompileError e(61,
+                    "'pass' outside of a while loop", t.line);
+                e.stack.push_back("Parser::parseStatement -> pass outside loop");
+                e.stack.push_back("at line " + to_string(t.line));
+                throw e;
+            }
+            return parsePass(toks, pos);
+        }
+        if (t.text == "continue") {
+            if (!ctx.allowContinue) {
+                CompileError e(62,
+                    "'continue' outside of a while loop", t.line);
+                e.stack.push_back("Parser::parseStatement -> continue outside loop");
+                e.stack.push_back("at line " + to_string(t.line));
+                throw e;
+            }
+            return parseContinue(toks, pos);
+        }
+
         if (t.text == "using")                        return parseUsing(toks, pos);
         if (t.text == "print" || t.text == "println") return parsePrint(toks, pos);
         if (t.text == "exit")                         return parseExit(toks, pos);
         if (t.text == "cin" || t.text == "cinline")   return parseCin(toks, pos);
         if (t.text == "declare")                      return parseDeclare(toks, pos);
         if (t.text == "global")                       return parseGlobal(toks, pos);
-        if (t.text == "int" || t.text == "string")    return parseDecl(toks, pos);
+        if (t.text == "int" || t.text == "string" || t.text == "bool")
+            return parseDecl(toks, pos);
+        if (t.text == "return")                       return parseReturn(toks, pos);
 
         if (pos + 1 < toks.size() && toks[pos + 1].type == Token::EQUAL) {
             string name = t.text;

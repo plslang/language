@@ -3,11 +3,21 @@
 
 using namespace std;
 
-// Единый блок: читаем statement'ы до `else` или `@endblock`.
+// Тело if: statement'ы до `else` или `@endblock`.
+// ctx наследуется от вызывающего, но с поправками:
+//   allowIf = true   (внутри if можно @ifblock? нет — E23)
+//   allowWhile = false (E60)
+//   allowPass/allowContinue — наследуются (если мы внутри while,
+//   они true и pass/continue валидны; если снаружи — false,
+//   и parseStatement сразу бросит E61/E62).
 static vector<Stmt> parseIfBody(const vector<Token>& toks, size_t& pos,
-                                int blockLine)
+                                int blockLine, const ParseCtx& outer)
 {
     vector<Stmt> body;
+
+    ParseCtx inner = outer;
+    inner.allowIf    = false;  // вложенный @ifblock запрещён (E23)
+    inner.allowWhile = false;  // @whileblock внутри if запрещён (E60)
 
     while (pos < toks.size() && toks[pos].type != Token::END) {
         const Token& t = toks[pos];
@@ -15,13 +25,15 @@ static vector<Stmt> parseIfBody(const vector<Token>& toks, size_t& pos,
         // else — конец thenBody
         if (t.type == Token::IDENT && t.text == "else") break;
 
-        // @endblock / @ifblock / другой @
+        // @-директивы
         if (t.type == Token::AT) {
             if (pos + 1 < toks.size() &&
                 toks[pos + 1].type == Token::IDENT)
             {
                 const string& name = toks[pos + 1].text;
+
                 if (name == "endblock") break;
+
                 if (name == "ifblock") {
                     CompileError e(23,
                         "nested '@ifblock' is not supported (inner block at line " +
@@ -29,6 +41,17 @@ static vector<Stmt> parseIfBody(const vector<Token>& toks, size_t& pos,
                         to_string(blockLine) + ")",
                         t.line);
                     e.stack.push_back("Parser::parseIfBody -> nested @ifblock");
+                    e.stack.push_back("at line " + to_string(t.line));
+                    throw e;
+                }
+
+                if (name == "whileblock") {
+                    CompileError e(60,
+                        "nested '@whileblock' is not supported (inner block at line " +
+                        to_string(t.line) + " inside block opened at line " +
+                        to_string(blockLine) + ")",
+                        t.line);
+                    e.stack.push_back("Parser::parseIfBody -> nested @whileblock");
                     e.stack.push_back("at line " + to_string(t.line));
                     throw e;
                 }
@@ -43,13 +66,15 @@ static vector<Stmt> parseIfBody(const vector<Token>& toks, size_t& pos,
             throw e;
         }
 
-        body.push_back(parseStatement(toks, pos));
+        body.push_back(parseStatement(toks, pos, inner));
     }
 
     return body;
 }
 
-Stmt parseIf(const vector<Token>& toks, size_t& pos, int blockLine) {
+Stmt parseIf(const vector<Token>& toks, size_t& pos,
+             int blockLine, const ParseCtx& ctx)
+{
     const Token& kw = toks[pos];   // "if"
     pos++;
 
@@ -71,6 +96,16 @@ Stmt parseIf(const vector<Token>& toks, size_t& pos, int blockLine) {
 
     s.cond = parseCmp(toks, pos);
 
+    // 63: '=' вместо '=='
+    if (pos < toks.size() && toks[pos].type == Token::EQUAL) {
+        CompileError e(63,
+            "did you mean '=='? '=' is assignment, not comparison",
+            toks[pos].line);
+        e.stack.push_back("Parser::parseIf -> condition '='");
+        e.stack.push_back("at line " + to_string(toks[pos].line));
+        throw e;
+    }
+
     // 25: expected ':' after if condition
     if (pos >= toks.size() || toks[pos].type != Token::COLON) {
         const Token& tk = toks[pos < toks.size() ? pos : toks.size() - 1];
@@ -83,7 +118,7 @@ Stmt parseIf(const vector<Token>& toks, size_t& pos, int blockLine) {
     }
     pos++;
 
-    s.thenBody = parseIfBody(toks, pos, blockLine);
+    s.thenBody = parseIfBody(toks, pos, blockLine, ctx);
 
     // 45: 'if' body is empty
     if (s.thenBody.empty()) {
@@ -107,7 +142,7 @@ Stmt parseIf(const vector<Token>& toks, size_t& pos, int blockLine) {
             toks[pos].type == Token::IDENT &&
             toks[pos].text == "if")
         {
-            Stmt nested = parseIf(toks, pos, blockLine);
+            Stmt nested = parseIf(toks, pos, blockLine, ctx);
             s.elseBody.push_back(move(nested));
             return s;
         }
@@ -151,7 +186,7 @@ Stmt parseIf(const vector<Token>& toks, size_t& pos, int blockLine) {
             throw e;
         }
 
-        s.elseBody = parseIfBody(toks, pos, blockLine);
+        s.elseBody = parseIfBody(toks, pos, blockLine, ctx);
     }
 
     return s;

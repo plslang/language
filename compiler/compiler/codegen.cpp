@@ -30,6 +30,14 @@ string emitIncludes(bool usesMath) {
     }
     out << "using namespace std;\n";
     out << "\n";
+
+    // [CONCAT] хелпер для "string + bool"
+    out << "// helper for string + bool concatenation\n";
+    out << "static inline string __pla_bool_to_str(bool b) {\n";
+    out << "    return b ? \"true\" : \"false\";\n";
+    out << "}\n";
+    out << "\n";
+
     return out.str();
 }
 
@@ -51,35 +59,31 @@ string emitGlobals(const map<string, GlobalInfo>& globals) {
             } else if (gi.init->kind == Expr::STR) {
                 init = cppStringLiteral(gi.init->strValue);
             } else {
-                init = (gi.type == "int") ? "0" : "\"\"";
+                init = defaultFor(gi.type);
             }
         } else {
-            init = (gi.type == "int") ? "0" : "\"\"";
+            init = defaultFor(gi.type);
         }
 
-        if (gi.type == "int") {
-            out << "static long long " << cppGlobalIdent(name)
-                << " = " << init << ";\n";
-        } else {
-            out << "static std::string " << cppGlobalIdent(name)
-                << " = " << init << ";\n";
-        }
+        out << "static " << typeFor(gi.type) << " "
+            << cppGlobalIdent(name) << " = " << init << ";\n";
     }
     out << "\n";
     return out.str();
 }
 
 string emitForwardDeclarations(const Program& prog,
-                               const map<string, vector<DeclareInfo>>& declares)
+                               const map<string, FuncInfo>& funcs)
 {
     ostringstream out;
     out << "// forward declarations\n";
     for (const auto& f : prog.functions) {
-        out << "void fn_" << f.name << "(";
-        const auto& ds = declares.at(f.name);
-        for (size_t i = 0; i < ds.size(); ++i) {
+        const auto& fi = funcs.at(f.name);
+        out << cppRetType(fi.retType) << " fn_" << f.name << "(";
+        for (size_t i = 0; i < fi.declares.size(); ++i) {
             if (i) out << ", ";
-            out << typeFor(ds[i].type) << "& " << cppIdentFor(f.name, ds[i].name);
+            out << typeFor(fi.declares[i].type) << "& "
+                << cppIdentFor(f.name, fi.declares[i].name);
         }
         out << ");\n";
     }
@@ -92,8 +96,9 @@ string emitStmtBlock(const vector<Stmt>& body,
                      const string& fn,
                      const FuncScope& sc,
                      const map<string, GlobalInfo>& globals,
-                     const map<string, vector<DeclareInfo>>& declares,
-                     int indent)
+                     const map<string, FuncInfo>& funcs,
+                     int indent,
+                     FuncRet currentRet)
 {
     ostringstream out;
     string p(indent * 4, ' ');
@@ -101,19 +106,19 @@ string emitStmtBlock(const vector<Stmt>& body,
     for (const auto& s : body) {
         switch (s.kind) {
             case Stmt::PRINT:
-                out << p << emitPrint(s, fn, sc, globals);
+                out << p << emitPrint(s, fn, sc, globals, funcs);
                 break;
             case Stmt::EXIT:
                 out << p << emitExit(s);
                 break;
             case Stmt::CALL:
-                out << p << emitCall(s, fn, sc, globals, declares);
+                out << p << emitCall(s, fn, sc, globals, funcs);
                 break;
             case Stmt::DECL:
-                out << p << emitDecl(s, fn, sc, globals);
+                out << p << emitDecl(s, fn, sc, globals, funcs);
                 break;
             case Stmt::ASSIGN:
-                out << p << emitAssign(s, fn, sc, globals);
+                out << p << emitAssign(s, fn, sc, globals, funcs);
                 break;
             case Stmt::DECLARE:
                 out << p << emitDeclare(s, fn);
@@ -127,10 +132,22 @@ string emitStmtBlock(const vector<Stmt>& body,
                 out << p << emitCin(s, fn, sc, globals);
                 break;
             case Stmt::IF:
-                out << emitIf(s, fn, sc, globals, declares, indent);
+                out << emitIf(s, fn, sc, globals, funcs, indent);
+                break;
+            case Stmt::WHILE:
+                out << emitWhile(s, fn, sc, globals, funcs, indent);
+                break;
+            case Stmt::PASS:
+                out << p << emitPass(s);
+                break;
+            case Stmt::CONTINUE:
+                out << p << emitContinue(s);
+                break;
+            case Stmt::RETURN:
+                out << p << emitReturn(s, fn, sc, globals, funcs, currentRet);
                 break;
             case Stmt::DIRECTIVE:
-                break;  // @ifblock / @endblock не доходят сюда
+                break;
         }
     }
     return out.str();
@@ -139,20 +156,22 @@ string emitStmtBlock(const vector<Stmt>& body,
 string emitFunction(const Function& f,
                     const FuncScope& sc,
                     const map<string, GlobalInfo>& globals,
-                    const map<string, vector<DeclareInfo>>& declares)
+                    const map<string, FuncInfo>& funcs)
 {
     ostringstream out;
 
+    const auto& fi = funcs.at(f.name);
+
     out << "// code - " << f.name << ":\n";
-    out << "void fn_" << f.name << "(";
-    const auto& ds = declares.at(f.name);
-    for (size_t i = 0; i < ds.size(); ++i) {
+    out << cppRetType(fi.retType) << " fn_" << f.name << "(";
+    for (size_t i = 0; i < fi.declares.size(); ++i) {
         if (i) out << ", ";
-        out << typeFor(ds[i].type) << "& " << cppIdentFor(f.name, ds[i].name);
+        out << typeFor(fi.declares[i].type) << "& "
+            << cppIdentFor(f.name, fi.declares[i].name);
     }
     out << ") {\n";
 
-    out << emitStmtBlock(f.body, f.name, sc, globals, declares, 1);
+    out << emitStmtBlock(f.body, f.name, sc, globals, funcs, 1, fi.retType);
 
     out << "}\n\n";
     return out.str();

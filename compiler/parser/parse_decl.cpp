@@ -1,4 +1,4 @@
-// parser/parse_decl.cpp - int x = <expr> / int x
+// parser/parse_decl.cpp - int x = <expr> / int x / bool b = ...
 #include "parser.hpp"
 
 using namespace std;
@@ -27,7 +27,6 @@ Stmt parseDecl(const vector<Token>& toks, size_t& pos) {
     s.varInit = nullptr;
     s.line = kw.line;
 
-    // '=' optional
     if (pos >= toks.size() || toks[pos].type != Token::EQUAL) {
         return s;
     }

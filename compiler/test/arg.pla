@@ -1,0 +1,12 @@
+main:
+    arg 1 first_string
+    arg 2 second_string
+
+    @ifblock
+        if first_string == empty:
+            .showhelp
+        else if second_string == empty:
+            .showarghelp
+        else:
+            println(first_string + second_string)
+    @endblock

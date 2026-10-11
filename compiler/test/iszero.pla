@@ -1,0 +1,32 @@
+-- next im going to add @while's ofc
+
+main:
+    -- ask user for an number.
+    global bool isZero = false
+    global int  userNumber
+
+    print("Enter your number: ")
+    cin(userNumber)
+
+    @ifblock
+    if .isZeroInput:
+        print("is zero: ")
+        println(isZero)
+    else:
+        print("is zero: ")
+        println(isZero)
+    @endblock
+
+    exit(0)
+
+isZeroInput(!bool):
+    @ifblock
+        if userNumber == 0:
+            isZero = true
+            println("Number is zero!")
+            return 0
+        else:
+            isZero = false
+            println("Number is not zero!")
+            return 1
+    @endblock

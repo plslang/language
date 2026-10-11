@@ -4,15 +4,16 @@
 using namespace std;
 
 string emitDecl(const Stmt& s, const string& fn, const FuncScope& sc,
-                const map<string, GlobalInfo>& globals)
+                const map<string, GlobalInfo>& globals,
+                const map<string, FuncInfo>& funcs)
 {
     ostringstream out;
 
     string init;
     if (s.varInit) {
-        init = renderExpr(s.varInit, fn, sc, globals);
+        init = renderExpr(s.varInit, fn, sc, globals, funcs);
     } else {
-        init = (s.varType == "string") ? "\"\"" : "0";
+        init = defaultFor(s.varType);
     }
 
     out << "// code - " << s.varType << " " << s.varName << " = ...\n";

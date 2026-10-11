@@ -14,7 +14,31 @@ static ExprPtr parseAtom(const vector<Token>& toks, size_t& pos) {
 
     if (t.type == Token::NUMBER) { pos++; return makeNum(stoll(t.text), t.line); }
     if (t.type == Token::STRING) { pos++; return makeStr(t.text, t.line); }
-    if (t.type == Token::IDENT)  { pos++; return makeVar(t.text, t.line); }
+
+    // .name — вызов функции в выражении
+    if (t.type == Token::DOT) {
+        int line = t.line;
+        pos++;
+        if (pos >= toks.size() || toks[pos].type != Token::IDENT) {
+            const Token& tk = toks[pos < toks.size() ? pos : toks.size() - 1];
+            CompileError e(1,
+                "failed argument: expected function name after '.', got '" +
+                tk.text + "'", tk.line);
+            e.stack.push_back("Parser::parseExpr -> call");
+            e.stack.push_back("at line " + to_string(tk.line));
+            throw e;
+        }
+        string name = toks[pos].text;
+        pos++;
+        return makeCall(name, line);
+    }
+
+    if (t.type == Token::IDENT) {
+        if (t.text == "true")  { pos++; return makeBool(true,  t.line); }
+        if (t.text == "false") { pos++; return makeBool(false, t.line); }
+        pos++;
+        return makeVar(t.text, t.line);
+    }
 
     if (t.type == Token::LPAREN) {
         pos++;
@@ -88,7 +112,6 @@ ExprPtr parseCmp(const vector<Token>& toks, size_t& pos) {
             int line = toks[pos].line;
             pos++;
 
-            // 28: incomplete condition after operator
             if (pos >= toks.size() ||
                 toks[pos].type == Token::COLON ||
                 toks[pos].type == Token::END)

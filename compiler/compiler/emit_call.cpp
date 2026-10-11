@@ -5,15 +5,24 @@ using namespace std;
 
 string emitCall(const Stmt& s, const string& fn, const FuncScope& sc,
                 const map<string, GlobalInfo>& globals,
-                const map<string, vector<DeclareInfo>>& declares)
+                const map<string, FuncInfo>& funcs)
 {
     ostringstream out;
     out << "// code - ." << s.callName << "\n";
 
-    const auto& calleeDecls = declares.at(s.callName);
+    auto it = funcs.find(s.callName);
+    if (it == funcs.end()) {
+        CompileError e(53,
+            "call to unknown function '." + s.callName + "'", s.line);
+        e.stack.push_back("Compiler::emitCall -> resolve");
+        e.stack.push_back("at line " + to_string(s.line));
+        throw e;
+    }
 
+    const auto& callee = it->second;
     vector<string> args;
-    for (const auto& d : calleeDecls) {
+
+    for (const auto& d : callee.declares) {
         Resolved r = resolveName(sc, globals, d.name);
         if (!r.found) {
             CompileError e(1,

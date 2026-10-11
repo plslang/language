@@ -1,4 +1,6 @@
 // config.cpp - version, colors, and small utilities shared across modules
+#include "config.hpp"
+
 #include <string>
 #include <sstream>
 #include <ctime>
@@ -7,8 +9,8 @@
 using namespace std;
 
 // ---------- version ----------
-const char* PL_VERSION      = "0.7.0";
-const char* PL_LANG_VERSION = "pla-lang v0.6";
+const char* PL_VERSION      = "0.8.0";
+const char* PL_LANG_VERSION = "pla-lang v0.7";
 
 // ---------- ANSI colors ----------
 const char* C_RESET   = "\033[0m";
@@ -60,7 +62,17 @@ string cppGlobalIdent(const string& name) {
 string typeFor(const string& t) {
     if (t == "int")    return "long long";
     if (t == "string") return "std::string";
+    if (t == "bool")   return "bool";
     return "auto";
+}
+
+string cppRetType(FuncRet r) {
+    switch (r) {
+        case FuncRet::VOID: return "void";
+        case FuncRet::BOOL: return "bool";
+        case FuncRet::INT:  return "long long";
+    }
+    return "void";
 }
 
 bool isNumericLiteral(const string& s) {
@@ -72,5 +84,6 @@ bool isNumericLiteral(const string& s) {
 string defaultFor(const string& type) {
     if (type == "int")    return "0";
     if (type == "string") return "\"\"";
+    if (type == "bool")   return "false";
     return "{}";
 }
