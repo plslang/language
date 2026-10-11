@@ -42,7 +42,30 @@ Stmt parseStatement(const vector<Token>& toks, size_t& pos) {
         return parseCall(toks, pos);
     }
 
+    if (t.type == Token::AT) {
+        return parseDirective(toks, pos);
+    }
+
     if (t.type == Token::IDENT) {
+        // 29: 'if' must be wrapped in @ifblock
+        if (t.text == "if") {
+            CompileError e(29,
+                "'if' statement must be wrapped in '@ifblock' / '@endblock'",
+                t.line);
+            e.stack.push_back("Parser::parseStatement -> if outside @ifblock");
+            e.stack.push_back("at line " + to_string(t.line));
+            throw e;
+        }
+
+        // 30: 'else' without matching 'if'
+        if (t.text == "else") {
+            CompileError e(30,
+                "'else' without matching 'if'", t.line);
+            e.stack.push_back("Parser::parseStatement -> else outside if");
+            e.stack.push_back("at line " + to_string(t.line));
+            throw e;
+        }
+
         if (t.text == "using")                        return parseUsing(toks, pos);
         if (t.text == "print" || t.text == "println") return parsePrint(toks, pos);
         if (t.text == "exit")                         return parseExit(toks, pos);

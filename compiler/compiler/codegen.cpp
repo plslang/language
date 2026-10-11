@@ -87,6 +87,55 @@ string emitForwardDeclarations(const Program& prog,
     return out.str();
 }
 
+// ---------- statement block emitter ----------
+string emitStmtBlock(const vector<Stmt>& body,
+                     const string& fn,
+                     const FuncScope& sc,
+                     const map<string, GlobalInfo>& globals,
+                     const map<string, vector<DeclareInfo>>& declares,
+                     int indent)
+{
+    ostringstream out;
+    string p(indent * 4, ' ');
+
+    for (const auto& s : body) {
+        switch (s.kind) {
+            case Stmt::PRINT:
+                out << p << emitPrint(s, fn, sc, globals);
+                break;
+            case Stmt::EXIT:
+                out << p << emitExit(s);
+                break;
+            case Stmt::CALL:
+                out << p << emitCall(s, fn, sc, globals, declares);
+                break;
+            case Stmt::DECL:
+                out << p << emitDecl(s, fn, sc, globals);
+                break;
+            case Stmt::ASSIGN:
+                out << p << emitAssign(s, fn, sc, globals);
+                break;
+            case Stmt::DECLARE:
+                out << p << emitDeclare(s, fn);
+                break;
+            case Stmt::GLOBAL:
+                out << p << emitGlobalMarker(s);
+                break;
+            case Stmt::USING:
+                break;
+            case Stmt::CIN:
+                out << p << emitCin(s, fn, sc, globals);
+                break;
+            case Stmt::IF:
+                out << emitIf(s, fn, sc, globals, declares, indent);
+                break;
+            case Stmt::DIRECTIVE:
+                break;  // @ifblock / @endblock не доходят сюда
+        }
+    }
+    return out.str();
+}
+
 string emitFunction(const Function& f,
                     const FuncScope& sc,
                     const map<string, GlobalInfo>& globals,
@@ -103,19 +152,7 @@ string emitFunction(const Function& f,
     }
     out << ") {\n";
 
-    for (const auto& s : f.body) {
-        switch (s.kind) {
-            case Stmt::PRINT:   out << emitPrint(s, f.name, sc, globals); break;
-            case Stmt::EXIT:    out << emitExit(s); break;
-            case Stmt::CALL:    out << emitCall(s, f.name, sc, globals, declares); break;
-            case Stmt::DECL:    out << emitDecl(s, f.name, sc, globals); break;
-            case Stmt::ASSIGN:  out << emitAssign(s, f.name, sc, globals); break;
-            case Stmt::DECLARE: out << emitDeclare(s, f.name); break;
-            case Stmt::GLOBAL:  out << emitGlobalMarker(s); break;
-            case Stmt::USING:   break;
-            case Stmt::CIN:     out << emitCin(s, f.name, sc, globals); break;
-        }
-    }
+    out << emitStmtBlock(f.body, f.name, sc, globals, declares, 1);
 
     out << "}\n\n";
     return out.str();

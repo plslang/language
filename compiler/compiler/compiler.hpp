@@ -86,6 +86,20 @@ std::string emitGlobalMarker(const Stmt& s);
 std::string emitCin   (const Stmt& s, const std::string& fn, const FuncScope& sc,
                        const std::map<std::string, GlobalInfo>& globals);
 
+// if / else
+std::string emitIf(const Stmt& s, const std::string& fn, const FuncScope& sc,
+                   const std::map<std::string, GlobalInfo>& globals,
+                   const std::map<std::string, std::vector<DeclareInfo>>& declares,
+                   int indent);
+
+// ---------- block emitter (used by emitIf) ----------
+std::string emitStmtBlock(const std::vector<Stmt>& body,
+                          const std::string& fn,
+                          const FuncScope& sc,
+                          const std::map<std::string, GlobalInfo>& globals,
+                          const std::map<std::string, std::vector<DeclareInfo>>& declares,
+                          int indent);
+
 // ---------- codegen ----------
 std::string emitBanner(const std::string& srcName);
 std::string emitIncludes(bool usesMath);

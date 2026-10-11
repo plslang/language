@@ -1,4 +1,4 @@
-// lexer/lex_punct.cpp - lex punctuation: ( ) : . = + - * /
+// lexer/lex_punct.cpp - lex punctuation and operators
 #include "lexer.hpp"
 
 using namespace std;
@@ -9,30 +9,55 @@ bool tryLexPunct(const string& src, size_t pos, Token& out, size_t& newPos,
     if (pos >= src.size()) return false;
 
     char c = src[pos];
+    char n = (pos + 1 < src.size()) ? src[pos + 1] : '\0';
+
+    // ';' is ignored — treated like whitespace, not a token
+    if (c == ';') {
+        newPos = pos + 1;
+        col++;
+        // special marker: out.type not set, caller must check newPos > pos
+        // We use END as sentinel and let lex_source skip it
+        return false;  // не потребляем, пусть lex_source сам скипнет
+    }
+
     Token::Type t;
-    bool ok = true;
+    size_t consumed = 1;
 
     switch (c) {
+        case '=':
+            if (n == '=') { t = Token::EQEQ; consumed = 2; }
+            else          { t = Token::EQUAL; }
+            break;
+        case '!':
+            if (n == '=') { t = Token::NEQ; consumed = 2; }
+            else          { return false; }
+            break;
+        case '<':
+            if (n == '=') { t = Token::LTE; consumed = 2; }
+            else          { t = Token::LT; }
+            break;
+        case '>':
+            if (n == '=') { t = Token::GTE; consumed = 2; }
+            else          { t = Token::GT; }
+            break;
         case '(': t = Token::LPAREN; break;
         case ')': t = Token::RPAREN; break;
         case ':': t = Token::COLON;  break;
         case '.': t = Token::DOT;    break;
-        case '=': t = Token::EQUAL;  break;
         case '+': t = Token::PLUS;   break;
         case '-': t = Token::MINUS;  break;
         case '*': t = Token::STAR;   break;
         case '/': t = Token::SLASH;  break;
-        default:  ok = false;        break;
+        case '@': t = Token::AT;     break;
+        default:  return false;
     }
 
-    if (!ok) return false;
-
     out.type = t;
-    out.text = string(1, c);
+    out.text = src.substr(pos, consumed);
     out.line = line;
     out.col  = col;
 
-    newPos = pos + 1;
-    col++;
+    newPos = pos + consumed;
+    col += (int)consumed;
     return true;
 }

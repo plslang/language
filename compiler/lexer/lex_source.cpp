@@ -15,6 +15,9 @@ vector<Token> lexSource(const string& src) {
         if (c == '\n') { line++; col = 1; pos++; continue; }
         if (isspace((unsigned char)c)) { col++; pos++; continue; }
 
+        // ';' is ignored — treated like whitespace
+        if (c == ';') { col++; pos++; continue; }
+
         // comments: -- until end of line
         if (c == '-' && pos + 1 < src.size() && src[pos+1] == '-') {
             while (pos < src.size() && src[pos] != '\n') { pos++; col++; }

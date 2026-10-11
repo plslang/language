@@ -15,7 +15,7 @@ struct Expr {
     long long numValue = 0;       // NUM
     std::string strValue;         // STR
     std::string varName;          // VAR
-    char op = 0;                  // BINOP: '+', '-', '*', '/'
+    char op = 0;                  // BINOP: '+','-','*','/','=','!','<','>','L','G'
     std::shared_ptr<Expr> lhs;    // BINOP
     std::shared_ptr<Expr> rhs;    // BINOP
 
@@ -31,10 +31,10 @@ ExprPtr makeBin(char op, ExprPtr l, ExprPtr r, int line);
 // ---------- statements ----------
 struct Stmt {
     enum Kind {
-        PRINT, EXIT, CALL, DECL, ASSIGN, DECLARE, GLOBAL, USING, CIN
+        PRINT, EXIT, CALL, DECL, ASSIGN, DECLARE, GLOBAL, USING, CIN, IF, DIRECTIVE
     } kind;
 
-    bool newline = false;         // PRINT: println vs print
+    bool newline = false;         // PRINT
     ExprPtr printExpr;            // PRINT
 
     int exitCode = 0;             // EXIT
@@ -43,12 +43,20 @@ struct Stmt {
 
     std::string varType;          // DECL / DECLARE / GLOBAL
     std::string varName;          // DECL / ASSIGN / DECLARE / GLOBAL
-    ExprPtr varInit;              // DECL / ASSIGN / GLOBAL (may be nullptr)
+    ExprPtr varInit;              // DECL / ASSIGN / GLOBAL
 
     std::string usingModule;      // USING
 
     std::string cinName;          // CIN
-    bool        cinLine = false;  // CIN: true = getline, false = >>
+    bool        cinLine = false;  // CIN
+
+    // IF
+    ExprPtr cond;                 // IF: condition
+    std::vector<Stmt> thenBody;   // IF: then branch
+    std::vector<Stmt> elseBody;   // IF: else branch (may be empty)
+
+    // DIRECTIVE
+    std::string directiveName;    // DIRECTIVE: "ifblock" | "endblock" | ...
 
     int line = 0;
 };
@@ -78,6 +86,9 @@ Stmt parseGlobal   (const std::vector<Token>& toks, std::size_t& pos);
 Stmt parseDecl     (const std::vector<Token>& toks, std::size_t& pos);
 Stmt parseAssign   (const std::vector<Token>& toks, std::size_t& pos, const std::string& name);
 Stmt parseCin      (const std::vector<Token>& toks, std::size_t& pos);
+Stmt parseIf       (const std::vector<Token>& toks, std::size_t& pos, int blockLine = -1);
+Stmt parseDirective(const std::vector<Token>& toks, std::size_t& pos);
 
 // ---------- expression parser ----------
 ExprPtr parseExpr(const std::vector<Token>& toks, std::size_t& pos);
+ExprPtr parseCmp (const std::vector<Token>& toks, std::size_t& pos);

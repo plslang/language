@@ -18,7 +18,7 @@ static ExprPtr parseAtom(const vector<Token>& toks, size_t& pos) {
 
     if (t.type == Token::LPAREN) {
         pos++;
-        ExprPtr inner = parseExpr(toks, pos);
+        ExprPtr inner = parseCmp(toks, pos);
         if (pos >= toks.size() || toks[pos].type != Token::RPAREN) {
             const Token& tk = toks[pos < toks.size() ? pos : toks.size() - 1];
             CompileError e(1,
@@ -64,6 +64,47 @@ ExprPtr parseExpr(const vector<Token>& toks, size_t& pos) {
         pos++;
         ExprPtr right = parseTerm(toks, pos);
         left = makeBin(op, left, right, line);
+    }
+    return left;
+}
+
+ExprPtr parseCmp(const vector<Token>& toks, size_t& pos) {
+    ExprPtr left = parseExpr(toks, pos);
+
+    if (pos < toks.size()) {
+        char op = 0;
+        string opName;
+        switch (toks[pos].type) {
+            case Token::EQEQ: op = '='; opName = "=="; break;
+            case Token::NEQ:  op = '!'; opName = "!="; break;
+            case Token::LT:   op = '<'; opName = "<";  break;
+            case Token::GT:   op = '>'; opName = ">";  break;
+            case Token::LTE:  op = 'L'; opName = "<="; break;
+            case Token::GTE:  op = 'G'; opName = ">="; break;
+            default: break;
+        }
+
+        if (op) {
+            int line = toks[pos].line;
+            pos++;
+
+            // 28: incomplete condition after operator
+            if (pos >= toks.size() ||
+                toks[pos].type == Token::COLON ||
+                toks[pos].type == Token::END)
+            {
+                const Token& tk = toks[pos < toks.size() ? pos : toks.size() - 1];
+                CompileError e(28,
+                    "incomplete condition after operator '" + opName +
+                    "' in 'if'", tk.line);
+                e.stack.push_back("Parser::parseCmp -> right operand");
+                e.stack.push_back("at line " + to_string(tk.line));
+                throw e;
+            }
+
+            ExprPtr right = parseExpr(toks, pos);
+            return makeBin(op, left, right, line);
+        }
     }
     return left;
 }

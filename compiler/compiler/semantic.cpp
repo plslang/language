@@ -36,20 +36,164 @@ static string inferExprType(const ExprPtr& e,
         case Expr::BINOP: {
             string lt = inferExprType(e->lhs, sc, globals, fn);
             string rt = inferExprType(e->rhs, sc, globals, fn);
-            if (lt != "int" || rt != "int") {
-                CompileError err(1,
-                    "failed argument: arithmetic requires int operands in function '" +
-                    fn + "' (got " + lt + " and " + rt + ")",
-                    e->line);
-                err.stack.push_back("Compiler::semanticCheck -> expr -> binop");
-                err.stack.push_back("function " + fn);
-                err.stack.push_back("at line " + to_string(e->line));
-                throw err;
+
+            // arithmetic: int + int
+            if (e->op == '+' || e->op == '-' || e->op == '*' || e->op == '/') {
+                if (lt != "int" || rt != "int") {
+                    CompileError err(1,
+                        "failed argument: arithmetic requires int operands in function '" +
+                        fn + "' (got " + lt + " and " + rt + ")",
+                        e->line);
+                    err.stack.push_back("Compiler::semanticCheck -> expr -> binop");
+                    err.stack.push_back("function " + fn);
+                    err.stack.push_back("at line " + to_string(e->line));
+                    throw err;
+                }
+                return "int";
             }
-            return "int";
+
+            // == / != : int vs int or string vs string
+            if (e->op == '=' || e->op == '!') {
+                if (lt != rt) {
+                    CompileError err(33,
+                        "cannot compare " + lt + " and " + rt +
+                        " in 'if' condition",
+                        e->line);
+                    err.stack.push_back("Compiler::semanticCheck -> expr -> cmp");
+                    err.stack.push_back("function " + fn);
+                    err.stack.push_back("at line " + to_string(e->line));
+                    throw err;
+                }
+                return "int";
+            }
+
+            // < > <= >= : int only
+            if (e->op == '<' || e->op == '>' || e->op == 'L' || e->op == 'G') {
+                if (lt != "int" || rt != "int") {
+                    string opName =
+                        (e->op == '<') ? "<" :
+                        (e->op == '>') ? ">" :
+                        (e->op == 'L') ? "<=" : ">=";
+                    CompileError err(34,
+                        "ordering comparison '" + opName +
+                        "' requires int operands (got " + lt + ")",
+                        e->line);
+                    err.stack.push_back("Compiler::semanticCheck -> expr -> cmp");
+                    err.stack.push_back("function " + fn);
+                    err.stack.push_back("at line " + to_string(e->line));
+                    throw err;
+                }
+                return "int";
+            }
         }
     }
     return "int";
+}
+
+static void checkBlock(const vector<Stmt>& body,
+                       const FuncScope& sc,
+                       const map<string, GlobalInfo>& globals,
+                       const string& fn)
+{
+    for (const auto& s : body) {
+        if (s.kind == Stmt::PRINT) {
+            (void)inferExprType(s.printExpr, sc, globals, fn);
+
+        } else if (s.kind == Stmt::DECL) {
+            if (s.varInit) {
+                string t = inferExprType(s.varInit, sc, globals, fn);
+                if (s.varType == "int" && t != "int") {
+                    CompileError e(1,
+                        "failed argument: cannot initialize int '" + s.varName +
+                        "' with " + t + " in function '" + fn + "'",
+                        s.line);
+                    e.stack.push_back("Compiler::semanticCheck -> decl");
+                    e.stack.push_back("function " + fn);
+                    throw e;
+                }
+                if (s.varType == "string" && t != "string") {
+                    CompileError e(1,
+                        "failed argument: cannot initialize string '" + s.varName +
+                        "' with " + t + " in function '" + fn + "'",
+                        s.line);
+                    e.stack.push_back("Compiler::semanticCheck -> decl");
+                    e.stack.push_back("function " + fn);
+                    throw e;
+                }
+            }
+
+        } else if (s.kind == Stmt::ASSIGN) {
+            Resolved r = resolveName(sc, globals, s.varName);
+            if (!r.found) {
+                CompileError e(1,
+                    "failed argument: assignment to undeclared variable '" +
+                    s.varName + "' in function '" + fn + "'",
+                    s.line);
+                e.stack.push_back("Compiler::semanticCheck -> assignLHS");
+                e.stack.push_back("function " + fn);
+                e.stack.push_back("at line " + to_string(s.line));
+                throw e;
+            }
+            string t = inferExprType(s.varInit, sc, globals, fn);
+            if (r.type == "int" && t != "int") {
+                CompileError e(1,
+                    "failed argument: cannot assign " + t + " to int '" +
+                    s.varName + "' in function '" + fn + "'",
+                    s.line);
+                e.stack.push_back("Compiler::semanticCheck -> assignRHS");
+                e.stack.push_back("function " + fn);
+                throw e;
+            }
+            if (r.type == "string" && t != "string") {
+                CompileError e(1,
+                    "failed argument: cannot assign " + t + " to string '" +
+                    s.varName + "' in function '" + fn + "'",
+                    s.line);
+                e.stack.push_back("Compiler::semanticCheck -> assignRHS");
+                e.stack.push_back("function " + fn);
+                throw e;
+            }
+
+        } else if (s.kind == Stmt::CIN) {
+            Resolved r = resolveName(sc, globals, s.cinName);
+            if (!r.found) {
+                CompileError e(1,
+                    "failed argument: cin() to undeclared variable '" +
+                    s.cinName + "' in function '" + fn + "'",
+                    s.line);
+                e.stack.push_back("Compiler::semanticCheck -> cin");
+                e.stack.push_back("function " + fn);
+                e.stack.push_back("at line " + to_string(s.line));
+                throw e;
+            }
+            if (r.type != "int" && r.type != "string") {
+                CompileError e(1,
+                    "failed argument: cin() requires int or string '" +
+                    s.cinName + "' in function '" + fn + "'",
+                    s.line);
+                e.stack.push_back("Compiler::semanticCheck -> cin");
+                e.stack.push_back("function " + fn);
+                throw e;
+            }
+
+        } else if (s.kind == Stmt::IF) {
+            // 35: 'if' condition must be int or comparison
+            string ct = inferExprType(s.cond, sc, globals, fn);
+            if (ct != "int") {
+                CompileError e(35,
+                    "'if' condition must be int or comparison (got " + ct + ")",
+                    s.line);
+                e.stack.push_back("Compiler::semanticCheck -> if condition");
+                e.stack.push_back("function " + fn);
+                e.stack.push_back("at line " + to_string(s.line));
+                throw e;
+            }
+            checkBlock(s.thenBody, sc, globals, fn);
+            if (!s.elseBody.empty()) {
+                checkBlock(s.elseBody, sc, globals, fn);
+            }
+        }
+    }
 }
 
 void semanticCheck(const Program& prog,
@@ -73,88 +217,6 @@ void semanticCheck(const Program& prog,
     }
 
     for (const auto& f : prog.functions) {
-        const FuncScope& sc = scopes.at(f.name);
-        for (const auto& s : f.body) {
-            if (s.kind == Stmt::PRINT) {
-                (void)inferExprType(s.printExpr, sc, globals, f.name);
-
-            } else if (s.kind == Stmt::DECL) {
-                if (s.varInit) {
-                    string t = inferExprType(s.varInit, sc, globals, f.name);
-                    if (s.varType == "int" && t != "int") {
-                        CompileError e(1,
-                            "failed argument: cannot initialize int '" + s.varName +
-                            "' with " + t + " in function '" + f.name + "'",
-                            s.line);
-                        e.stack.push_back("Compiler::semanticCheck -> decl");
-                        e.stack.push_back("function " + f.name);
-                        throw e;
-                    }
-                    if (s.varType == "string" && t != "string") {
-                        CompileError e(1,
-                            "failed argument: cannot initialize string '" + s.varName +
-                            "' with " + t + " in function '" + f.name + "'",
-                            s.line);
-                        e.stack.push_back("Compiler::semanticCheck -> decl");
-                        e.stack.push_back("function " + f.name);
-                        throw e;
-                    }
-                }
-
-            } else if (s.kind == Stmt::ASSIGN) {
-                Resolved r = resolveName(sc, globals, s.varName);
-                if (!r.found) {
-                    CompileError e(1,
-                        "failed argument: assignment to undeclared variable '" +
-                        s.varName + "' in function '" + f.name + "'",
-                        s.line);
-                    e.stack.push_back("Compiler::semanticCheck -> assignLHS");
-                    e.stack.push_back("function " + f.name);
-                    e.stack.push_back("at line " + to_string(s.line));
-                    throw e;
-                }
-                string t = inferExprType(s.varInit, sc, globals, f.name);
-                if (r.type == "int" && t != "int") {
-                    CompileError e(1,
-                        "failed argument: cannot assign " + t + " to int '" +
-                        s.varName + "' in function '" + f.name + "'",
-                        s.line);
-                    e.stack.push_back("Compiler::semanticCheck -> assignRHS");
-                    e.stack.push_back("function " + f.name);
-                    throw e;
-                }
-                if (r.type == "string" && t != "string") {
-                    CompileError e(1,
-                        "failed argument: cannot assign " + t + " to string '" +
-                        s.varName + "' in function '" + f.name + "'",
-                        s.line);
-                    e.stack.push_back("Compiler::semanticCheck -> assignRHS");
-                    e.stack.push_back("function " + f.name);
-                    throw e;
-                }
-
-            } else if (s.kind == Stmt::CIN) {
-                Resolved r = resolveName(sc, globals, s.cinName);
-                if (!r.found) {
-                    CompileError e(1,
-                        "failed argument: cin() to undeclared variable '" +
-                        s.cinName + "' in function '" + f.name + "'",
-                        s.line);
-                    e.stack.push_back("Compiler::semanticCheck -> cin");
-                    e.stack.push_back("function " + f.name);
-                    e.stack.push_back("at line " + to_string(s.line));
-                    throw e;
-                }
-                if (r.type != "int" && r.type != "string") {
-                    CompileError e(1,
-                        "failed argument: cin() requires int or string '" +
-                        s.cinName + "' in function '" + f.name + "'",
-                        s.line);
-                    e.stack.push_back("Compiler::semanticCheck -> cin");
-                    e.stack.push_back("function " + f.name);
-                    throw e;
-                }
-            }
-        }
+        checkBlock(f.body, scopes.at(f.name), globals, f.name);
     }
 }

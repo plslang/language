@@ -3,6 +3,112 @@
 
 using namespace std;
 
+// ---------- recursive hasExit ----------
+static bool hasExitRec(const vector<Stmt>& body) {
+    for (const auto& s : body) {
+        if (s.kind == Stmt::EXIT) return true;
+        if (s.kind == Stmt::IF) {
+            if (hasExitRec(s.thenBody)) return true;
+            if (hasExitRec(s.elseBody)) return true;
+        }
+    }
+    return false;
+}
+
+// ---------- parse body of a function ----------
+static vector<Stmt> parseFunctionBody(const vector<Token>& toks, size_t& pos,
+                                      const string& fnName)
+{
+    vector<Stmt> body;
+
+    while (pos < toks.size() && toks[pos].type != Token::END) {
+        const Token& t = toks[pos];
+
+        // новая функция: IDENT + COLON
+        if (t.type == Token::IDENT &&
+            pos + 1 < toks.size() &&
+            toks[pos + 1].type == Token::COLON)
+        {
+            break;
+        }
+
+        // @ifblock / @endblock / @unknown
+        if (t.type == Token::AT) {
+            if (pos + 1 >= toks.size() || toks[pos + 1].type != Token::IDENT) {
+                const Token& tk = toks[pos < toks.size() ? pos : toks.size() - 1];
+                CompileError e(24,
+                    "unknown directive '@' (expected '@ifblock' or '@endblock')",
+                    tk.line);
+                e.stack.push_back("Parser::parseFunctionBody -> directive");
+                e.stack.push_back("at line " + to_string(tk.line));
+                throw e;
+            }
+
+            const string& name = toks[pos + 1].text;
+            int atLine = t.line;
+
+            if (name == "ifblock") {
+                pos += 2;   // съели @ifblock
+
+                // 22: '@ifblock' must be followed by an 'if'
+                if (pos >= toks.size() ||
+                    toks[pos].type != Token::IDENT ||
+                    toks[pos].text != "if")
+                {
+                    const Token& tk = toks[pos < toks.size() ? pos : toks.size() - 1];
+                    CompileError e(22,
+                        "'@ifblock' must be followed by an 'if' statement, got '" +
+                        tk.text + "'", tk.line);
+                    e.stack.push_back("Parser::parseFunctionBody -> @ifblock");
+                    e.stack.push_back("at line " + to_string(tk.line));
+                    throw e;
+                }
+
+                Stmt ifStmt = parseIf(toks, pos, atLine);
+                body.push_back(move(ifStmt));
+
+                // ждём @endblock
+                if (pos >= toks.size() ||
+                    toks[pos].type != Token::AT ||
+                    pos + 1 >= toks.size() ||
+                    toks[pos + 1].type != Token::IDENT ||
+                    toks[pos + 1].text != "endblock")
+                {
+                    const Token& tk = toks[pos < toks.size() ? pos : toks.size() - 1];
+                    CompileError e(20,
+                        "'@ifblock' opened at line " + to_string(atLine) +
+                        " is never closed with '@endblock'", tk.line);
+                    e.stack.push_back("Parser::parseFunctionBody -> @endblock");
+                    e.stack.push_back("at line " + to_string(tk.line));
+                    throw e;
+                }
+                pos += 2;   // съели @endblock
+                continue;
+            }
+
+            if (name == "endblock") {
+                CompileError e(21,
+                    "'@endblock' without matching '@ifblock'", atLine);
+                e.stack.push_back("Parser::parseFunctionBody -> @endblock");
+                e.stack.push_back("at line " + to_string(atLine));
+                throw e;
+            }
+
+            CompileError e(24,
+                "unknown directive '@" + name +
+                "' (expected '@ifblock' or '@endblock')", atLine);
+            e.stack.push_back("Parser::parseFunctionBody -> directive");
+            e.stack.push_back("at line " + to_string(atLine));
+            throw e;
+        }
+
+        body.push_back(parseStatement(toks, pos));
+    }
+
+    return body;
+}
+
+// ---------- parse one function ----------
 static Function parseFunction(const vector<Token>& toks, size_t& pos) {
     Function fn;
 
@@ -30,24 +136,15 @@ static Function parseFunction(const vector<Token>& toks, size_t& pos) {
     }
     pos++;
 
-    while (pos < toks.size() && toks[pos].type != Token::END) {
-        if (toks[pos].type == Token::IDENT &&
-            pos + 1 < toks.size() &&
-            toks[pos + 1].type == Token::COLON)
-        {
-            break;
-        }
-        fn.body.push_back(parseStatement(toks, pos));
-    }
-
+    fn.body = parseFunctionBody(toks, pos, fn.name);
     return fn;
 }
 
+// ---------- top-level ----------
 Program parseProgram(const vector<Token>& toks) {
     Program prog;
     size_t pos = 0;
 
-    // using directives only allowed before first function
     while (pos < toks.size() && toks[pos].type != Token::END) {
         const Token& t = toks[pos];
 
@@ -104,11 +201,7 @@ Program parseProgram(const vector<Token>& toks) {
 
     {
         const Function& m = prog.functions[prog.mainIndex];
-        bool hasExit = false;
-        for (const auto& s : m.body) {
-            if (s.kind == Stmt::EXIT) { hasExit = true; break; }
-        }
-        if (!hasExit) {
+        if (!hasExitRec(m.body)) {
             CompileError e(2, "no return: missing exit() in main");
             e.stack.push_back("Parser::parseProgram -> checkExit");
             e.stack.push_back("at end of main body");

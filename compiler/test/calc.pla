@@ -1,0 +1,50 @@
+-- pla basic calculator
+
+
+
+using math
+
+
+main:
+    global int a
+    global int b
+    global string o
+    .getuserinput
+
+    @ifblock
+    if o == "/":
+        if b == 0:
+            println("You cannot divide by zero!")
+            exit(1)
+    @endblock
+
+    .calculate
+
+    exit(0)
+
+
+getuserinput:
+    println("Basic calculator on pla!")
+    print("Enter your first number: ")
+    cin(a)
+    print("Enter your operator (+ - / *): ")
+    cin(o)
+    print("Enter your second number: ")
+    cin(b)
+
+
+calculate:
+    print("result: ")
+    @ifblock
+    if o == "+":
+        println(a + b)
+    else if o == "-":
+        println(a - b)
+    else if o == "*":
+        println(a * b)
+    else if o == "/":
+        println(a / b)
+    else:
+        println("Error: invalid operator")
+        exit(1)
+    @endblock

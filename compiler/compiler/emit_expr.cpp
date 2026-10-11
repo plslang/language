@@ -3,6 +3,22 @@
 
 using namespace std;
 
+static string opToCpp(char op) {
+    switch (op) {
+        case '+': return "+";
+        case '-': return "-";
+        case '*': return "*";
+        case '/': return "/";
+        case '=': return "==";
+        case '!': return "!=";
+        case '<': return "<";
+        case '>': return ">";
+        case 'L': return "<=";
+        case 'G': return ">=";
+    }
+    return "?";
+}
+
 string renderExpr(const ExprPtr& e, const string& fn, const FuncScope& sc,
                   const map<string, GlobalInfo>& globals)
 {
@@ -30,7 +46,7 @@ string renderExpr(const ExprPtr& e, const string& fn, const FuncScope& sc,
             string l = renderExpr(e->lhs, fn, sc, globals);
             string r = renderExpr(e->rhs, fn, sc, globals);
             ostringstream out;
-            out << "(" << l << " " << e->op << " " << r << ")";
+            out << "(" << l << " " << opToCpp(e->op) << " " << r << ")";
             return out.str();
         }
     }
